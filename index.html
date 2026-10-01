@@ -1,0 +1,572 @@
+<!DOCTYPE html><html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>7-Segment Display</title><style>
+  * { box-sizing: border-box; }
+
+  :root {
+    --segment-color: #ff1818;
+    --segment-dark: #260707;
+  }
+
+  body {
+    margin: 0;
+    min-height: 100vh;
+    display: grid;
+    place-items: center;
+    padding: 24px;
+    background: #080808;
+    color: #fff;
+    font-family: system-ui, sans-serif;
+  }
+
+  .app {
+    width: min(1100px, 100%);
+  }
+
+  h1 {
+    text-align: center;
+    margin: 0 0 8px;
+    font-size: clamp(28px, 5vw, 46px);
+  }
+
+  .subtitle {
+    text-align: center;
+    color: #888;
+    margin: 0 0 28px;
+  }
+
+  .display {
+    min-height: 300px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 40px;
+    overflow-x: auto;
+    border: 2px solid #242424;
+    border-radius: 24px;
+    background: #030303;
+    box-shadow:
+      inset 0 0 55px color-mix(
+        in srgb,
+        var(--segment-color) 8%,
+        transparent
+      );
+  }
+
+  #output {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: clamp(12px, 2vw, 28px);
+    min-width: max-content;
+  }
+
+  .digit {
+    position: relative;
+    width: clamp(45px, 8vw, 105px);
+    height: clamp(85px, 15vw, 190px);
+    flex: 0 0 auto;
+  }
+
+  .segment {
+    position: absolute;
+    background: var(--segment-dark);
+    opacity: .25;
+    transition:
+      opacity .12s,
+      box-shadow .12s,
+      background .12s;
+  }
+
+  .segment.on {
+    opacity: 1;
+    background: var(--segment-color);
+    box-shadow:
+      0 0 5px var(--segment-color),
+      0 0 14px color-mix(
+        in srgb,
+        var(--segment-color) 90%,
+        transparent
+      ),
+      0 0 30px color-mix(
+        in srgb,
+        var(--segment-color) 45%,
+        transparent
+      );
+  }
+
+  /* Die sieben Segmente:
+     a = oben
+     b/c = rechts
+     d = unten
+     e/f = links
+     g = Mitte
+  */
+
+  .a, .d, .g {
+    left: 12%;
+    width: 76%;
+    height: 9%;
+    clip-path: polygon(
+      8% 0,
+      92% 0,
+      100% 50%,
+      92% 100%,
+      8% 100%,
+      0 50%
+    );
+  }
+
+  .a { top: 0; }
+  .g { top: 45.5%; }
+  .d { bottom: 0; }
+
+  .b, .c, .e, .f {
+    width: 10%;
+    height: 43%;
+    clip-path: polygon(
+      50% 0,
+      100% 9%,
+      100% 91%,
+      50% 100%,
+      0 91%,
+      0 9%
+    );
+  }
+
+  .b { right: 3%; top: 4%; }
+  .c { right: 3%; bottom: 4%; }
+  .f { left: 3%; top: 4%; }
+  .e { left: 3%; bottom: 4%; }
+
+  .decimal {
+    width: 9%;
+    height: 9%;
+    right: -4%;
+    bottom: 0;
+    border-radius: 50%;
+    clip-path: none;
+  }
+
+  .controls {
+    display: flex;
+    gap: 12px;
+    margin-top: 20px;
+  }
+
+  input[type="text"] {
+    flex: 1;
+    min-width: 0;
+    padding: 17px 20px;
+    border: 2px solid #292929;
+    border-radius: 14px;
+    outline: none;
+    background: #111;
+    color: #fff;
+    font-size: 20px;
+  }
+
+  input[type="text"]:focus {
+    border-color: var(--segment-color);
+    box-shadow:
+      0 0 0 4px color-mix(
+        in srgb,
+        var(--segment-color) 12%,
+        transparent
+      );
+  }
+
+  button {
+    padding: 0 25px;
+    border: 0;
+    border-radius: 14px;
+    background: var(--segment-color);
+    color: #fff;
+    font-size: 17px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background .15s, transform .1s;
+  }
+
+  button:hover {
+    filter: brightness(1.15);
+  }
+
+  button:active {
+    transform: scale(.97);
+  }
+
+  .settings {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    margin-top: 18px;
+    color: #aaa;
+  }
+
+  .settings label {
+    font-size: 15px;
+  }
+
+  #colorPicker {
+    width: 52px;
+    height: 36px;
+    padding: 2px;
+    border: 2px solid #292929;
+    border-radius: 8px;
+    background: #111;
+    cursor: pointer;
+  }
+
+  .color-value {
+    min-width: 75px;
+    font-family: monospace;
+    font-size: 14px;
+    color: #777;
+  }
+
+  .hint {
+    text-align: center;
+    color: #666;
+    font-size: 14px;
+    margin-top: 14px;
+    line-height: 1.5;
+  }
+
+  @media (max-width: 560px) {
+    .display {
+      min-height: 230px;
+      padding: 25px 18px;
+    }
+
+    .controls {
+      flex-direction: column;
+    }
+
+    button {
+      height: 56px;
+    }
+
+    .settings {
+      flex-wrap: wrap;
+    }
+  }
+</style></head><body><main class="app">  <h1>7-Segment Display</h1>  <p class="subtitle">
+    Buchstaben, Zahlen und Sonderzeichen mit frei wählbarer Farbe.
+  </p>  <section class="display">
+    <div id="output" aria-live="polite"></div>
+  </section>  <div class="controls">
+    <input
+      id="input"
+      type="text"
+      maxlength="30"
+      value="7-SEGMENT ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+      placeholder="Zahl oder Text eingeben …"
+      autocomplete="off"
+      autofocus
+    ><button id="clear" type="button">
+  Löschen
+</button>
+
+  </div>  <div class="settings">
+    <label for="colorPicker">Segmentfarbe:</label><input
+  id="colorPicker"
+  type="color"
+  value="#ff1818"
+  title="Segmentfarbe auswählen"
+>
+
+<span id="colorValue" class="color-value">
+  #FF1818
+</span>
+
+  </div>  <p class="hint">
+    Unterstützt A–Z, a–z, 0–9 sowie einige Sonderzeichen.
+    Zeichen, die sich auf einem 7-Segment-Display nicht sinnvoll darstellen
+    lassen, werden so gut wie möglich angenähert.
+  </p></main><script>
+
+  /*
+   * 7-Segment-Belegung:
+   *
+   *       a
+   *     -----
+   *   f |     | b
+   *     -- g --
+   *   e |     | c
+   *     -----
+   *       d
+   *
+   * Reihenfolge:
+   * a b c d e f g
+   *
+   * 1 = Segment an
+   * 0 = Segment aus
+   */
+
+  const segments = {
+
+    // Zahlen
+    "0": "1111110",
+    "1": "0110000",
+    "2": "1101101",
+    "3": "1111001",
+    "4": "0110011",
+    "5": "1011011",
+    "6": "1011111",
+    "7": "1110000",
+    "8": "1111111",
+    "9": "1111011",
+
+    // Buchstaben A-Z
+    //
+    // Einige Buchstaben sind auf einem echten
+    // 7-Segment-Display nur angenähert darstellbar.
+
+    "A": "1110111",
+    "B": "0011111",
+    "C": "1001110",
+    "D": "0111101",
+    "E": "1001111",
+    "F": "1000111",
+    "G": "1011110",
+    "H": "0110111",
+    "I": "0110000",
+    "J": "0111100",
+    "K": "0110111",  // Annäherung
+    "L": "0001110",
+    "M": "1010100",  // Annäherung
+    "N": "0010101",
+    "O": "1111110",
+    "P": "1100111",
+    "Q": "1110011",
+    "R": "1100111",  // Annäherung an P/R
+    "S": "1011011",
+    "T": "0001111",
+    "U": "0111110",
+    "V": "0111110",  // Annäherung
+    "W": "0101010",  // Annäherung
+    "X": "0110111",  // Annäherung
+    "Y": "0111011",
+    "Z": "1101101",
+
+    // Sonderzeichen
+    "-": "0000001",
+    "_": "0001000",
+    "=": "0001001",
+    "^": "1100011",
+    "[": "1001110",
+    "]": "0111100",
+    " ": "0000000"
+
+  };
+
+
+  const input = document.getElementById("input");
+  const output = document.getElementById("output");
+  const clear = document.getElementById("clear");
+
+  const colorPicker = document.getElementById("colorPicker");
+  const colorValue = document.getElementById("colorValue");
+
+
+  /*
+   * Erzeugt ein einzelnes 7-Segment-Zeichen.
+   */
+  function createDigit(pattern, showDecimal = false) {
+
+    const digit = document.createElement("div");
+    digit.className = "digit";
+
+    const names = [
+      "a",
+      "b",
+      "c",
+      "d",
+      "e",
+      "f",
+      "g"
+    ];
+
+    names.forEach((name, index) => {
+
+      const segment = document.createElement("span");
+
+      segment.className = `segment ${name}`;
+
+      if (pattern[index] === "1") {
+        segment.classList.add("on");
+      }
+
+      digit.appendChild(segment);
+
+    });
+
+
+    // Dezimalpunkt
+    if (showDecimal) {
+
+      const decimal = document.createElement("span");
+
+      decimal.className = "segment decimal on";
+
+      digit.appendChild(decimal);
+
+    }
+
+    return digit;
+  }
+
+
+  /*
+   * Text auf dem Display darstellen.
+   */
+  function render() {
+
+    output.innerHTML = "";
+
+    const value = input.value.toUpperCase();
+
+    for (let i = 0; i < value.length; i++) {
+
+      const char = value[i];
+
+
+      /*
+       * Punkt wird an das vorherige Zeichen
+       * als Dezimalpunkt angehängt.
+       */
+      if (char === "." && output.lastElementChild) {
+
+        const decimal = document.createElement("span");
+
+        decimal.className = "segment decimal on";
+
+        output.lastElementChild.appendChild(decimal);
+
+        continue;
+      }
+
+
+      /*
+       * Bekannte Zeichen verwenden.
+       * Unbekannte Zeichen bleiben leer.
+       */
+      const pattern =
+        segments[char] ?? "0000000";
+
+      output.appendChild(
+        createDigit(pattern)
+      );
+
+    }
+
+  }
+
+
+  /*
+   * Segmentfarbe ändern.
+   */
+  function updateColor() {
+
+    const color = colorPicker.value;
+
+    document.documentElement.style.setProperty(
+      "--segment-color",
+      color
+    );
+
+
+    /*
+     * Für den ausgeschalteten Segmentzustand
+     * wird automatisch eine dunklere Variante
+     * der gewählten Farbe berechnet.
+     */
+    const rgb = hexToRgb(color);
+
+    if (rgb) {
+
+      const darkColor =
+        `rgb(${Math.round(rgb.r * 0.18)}, ` +
+        `${Math.round(rgb.g * 0.18)}, ` +
+        `${Math.round(rgb.b * 0.18)})`;
+
+      document.documentElement.style.setProperty(
+        "--segment-dark",
+        darkColor
+      );
+
+    }
+
+
+    colorValue.textContent =
+      color.toUpperCase();
+
+  }
+
+
+  /*
+   * HEX-Farbe in RGB umwandeln.
+   */
+  function hexToRgb(hex) {
+
+    const match =
+      hex.match(/^#([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i);
+
+    if (!match) return null;
+
+    return {
+      r: parseInt(match[1], 16),
+      g: parseInt(match[2], 16),
+      b: parseInt(match[3], 16)
+    };
+
+  }
+
+
+  /*
+   * Eingabe live aktualisieren.
+   */
+  input.addEventListener(
+    "input",
+    render
+  );
+
+
+  /*
+   * Farbe live aktualisieren.
+   */
+  colorPicker.addEventListener(
+    "input",
+    updateColor
+  );
+
+
+  /*
+   * Löschen.
+   */
+  clear.addEventListener(
+    "click",
+    () => {
+
+      input.value = "";
+
+      render();
+
+      input.focus();
+
+    }
+  );
+
+
+  /*
+   * Initialisierung.
+   */
+  updateColor();
+  render();
+
+</script></body>
+  </html>
